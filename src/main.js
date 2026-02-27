@@ -6,15 +6,18 @@
   removeMaterialFromLab,
   unlockRecipeHint,
 } from "./game/crafting.js";
+import { useShopItem } from "./game/economy.js";
 import { evaluateOrders, syncOrders } from "./game/orders.js";
 import { applyCareAction, applyTicks, getActivePet } from "./game/simulation.js";
 import { TICK_MS, appendLog, loadState, persistState, resetState } from "./game/state.js";
-import { initDom, renderAll, renderPassive } from "./render/dom.js";
+import { flashPane, initDom, renderAll, renderPassive } from "./render/dom.js";
 import { PetPainter } from "./render/petPainter.js";
+import { SoundEngine } from "./render/sound.js";
 
 let state = loadState();
 syncOrders(state);
 
+const sound = new SoundEngine(state.soundOn);
 const refs = initDom({
   onMaterialSelect: handleMaterialSelect,
   onMaterialDrop: handleMaterialDrop,
@@ -27,6 +30,9 @@ const refs = initDom({
   onTabChange: handleTabChange,
   onSelectPet: handleSelectPet,
   onCareAction: handleCareAction,
+  onUseShopItem: handleUseShopItem,
+  onMobilePaneChange: handleMobilePaneChange,
+  onToggleSound: handleToggleSound,
 });
 
 const painter = new PetPainter(refs.petCanvas);
@@ -35,9 +41,9 @@ recoverOfflineProgress();
 commit();
 
 setInterval(() => {
-  const changed = stepByClock();
-  if (changed) {
-    commit();
+  const tickSummary = stepByClock();
+  if (tickSummary) {
+    commit({ tickSummary });
     return;
   }
   renderPassive(state, refs);
@@ -80,8 +86,10 @@ function handleCraft() {
   const result = craftFromLab(state);
   if (!result.ok) {
     appendLog(state, result.reason);
+    commit();
+    return;
   }
-  commit();
+  commit({ sound: "craft", flash: "pet" });
 }
 
 function handleClearSlots() {
@@ -97,6 +105,7 @@ function handleReset() {
   }
   state = resetState();
   syncOrders(state);
+  sound.setEnabled(state.soundOn);
   appendLog(state, "存档已重置。奇物公司重新开业。");
   commit();
 }
@@ -105,16 +114,20 @@ function handleClaimSupply() {
   const result = claimSupplyPack(state);
   if (!result.ok) {
     appendLog(state, result.reason);
+    commit();
+    return;
   }
-  commit();
+  commit({ sound: "success", flash: "lab" });
 }
 
 function handleUnlockHint() {
   const result = unlockRecipeHint(state);
   if (!result.ok) {
     appendLog(state, result.reason);
+    commit();
+    return;
   }
-  commit();
+  commit({ sound: "success" });
 }
 
 function handleTabChange(tabName) {
@@ -144,8 +157,45 @@ function handleCareAction(actionId) {
   const result = applyCareAction(state, state.activePetId, actionId);
   if (!result.ok) {
     appendLog(state, result.reason);
+    commit();
+    return;
   }
+
+  commit({ sound: "care", flash: "pet" });
+}
+
+function handleUseShopItem(itemId) {
+  if (!state.activePetId) {
+    appendLog(state, "没有可使用道具的奇物。先选择一个培育体。");
+    commit();
+    return;
+  }
+
+  const result = useShopItem(state, state.activePetId, itemId);
+  if (!result.ok) {
+    appendLog(state, result.reason);
+    commit();
+    return;
+  }
+
+  commit({ sound: "success", flash: "pet" });
+}
+
+function handleMobilePaneChange(pane) {
+  if (!["lab", "pet", "collection", "manage"].includes(pane)) {
+    return;
+  }
+  state.mobilePane = pane;
   commit();
+}
+
+function handleToggleSound() {
+  state.soundOn = !state.soundOn;
+  sound.setEnabled(state.soundOn);
+  commit();
+  if (state.soundOn) {
+    sound.beep("success");
+  }
 }
 
 function stepByClock() {
@@ -153,12 +203,12 @@ function stepByClock() {
   const elapsed = now - state.lastTickAt;
   const ticks = Math.floor(elapsed / TICK_MS);
   if (ticks <= 0) {
-    return false;
+    return null;
   }
 
-  applyTicks(state, ticks);
+  const tickSummary = applyTicks(state, ticks);
   state.lastTickAt += ticks * TICK_MS;
-  return true;
+  return tickSummary;
 }
 
 function recoverOfflineProgress() {
@@ -174,8 +224,30 @@ function recoverOfflineProgress() {
   appendLog(state, `离线期间推进 ${ticks} 个成长刻，已自动结算。`);
 }
 
-function commit() {
-  evaluateOrders(state);
+function commit(meta = {}) {
+  const orderSummary = evaluateOrders(state);
   persistState(state);
   renderAll(state, refs);
+
+  if (meta.flash) {
+    flashPane(refs, meta.flash);
+  }
+
+  if (meta.sound) {
+    sound.beep(meta.sound);
+  }
+
+  if (meta.tickSummary?.stageUps > 0) {
+    sound.beep("stage");
+    flashPane(refs, "pet");
+  }
+
+  if (meta.tickSummary?.newEffects > 0) {
+    sound.beep("effect");
+  }
+
+  if (orderSummary?.completed > 0) {
+    sound.beep("order");
+    flashPane(refs, "manage");
+  }
 }

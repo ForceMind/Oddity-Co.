@@ -8,7 +8,7 @@ export const MAX_PETS = 24;
 
 export function createDefaultState() {
   return {
-    version: 3,
+    version: 4,
     createdAt: new Date().toISOString(),
     points: 0,
     craftCount: 0,
@@ -24,13 +24,19 @@ export function createDefaultState() {
     pets: [],
     activePetId: null,
     dex: {},
+    speciesCount: {},
+    duplicateAbsorbCount: 0,
     tab: "nursery",
+    mobilePane: "lab",
+    soundOn: true,
     logs: ["[系统] 欢迎来到奇物公司。先拖材料进行研发。"],
     lastTickAt: Date.now(),
     lastSupplyAt: 0,
     unlockedHints: [],
     orders: [],
     completedOrderCount: 0,
+    orderStreak: 0,
+    lastOrderCompleteAt: 0,
   };
 }
 
@@ -109,8 +115,14 @@ function migrateState(source) {
     : [];
 
   state.dex = source.dex && typeof source.dex === "object" ? source.dex : {};
+  state.speciesCount = source.speciesCount && typeof source.speciesCount === "object" ? source.speciesCount : {};
+  state.duplicateAbsorbCount = Number.isFinite(source.duplicateAbsorbCount)
+    ? Math.max(0, Math.floor(source.duplicateAbsorbCount))
+    : 0;
 
   state.tab = source.tab === "dex" ? "dex" : "nursery";
+  state.mobilePane = typeof source.mobilePane === "string" ? source.mobilePane : "lab";
+  state.soundOn = typeof source.soundOn === "boolean" ? source.soundOn : true;
 
   state.logs = Array.isArray(source.logs)
     ? source.logs.filter((entry) => typeof entry === "string").slice(0, 40)
@@ -126,6 +138,8 @@ function migrateState(source) {
   state.completedOrderCount = Number.isFinite(source.completedOrderCount)
     ? Math.max(0, Math.floor(source.completedOrderCount))
     : 0;
+  state.orderStreak = Number.isFinite(source.orderStreak) ? Math.max(0, Math.floor(source.orderStreak)) : 0;
+  state.lastOrderCompleteAt = Number.isFinite(source.lastOrderCompleteAt) ? source.lastOrderCompleteAt : 0;
 
   if (!state.activePetId && state.pets[0]) {
     state.activePetId = state.pets[0].id;

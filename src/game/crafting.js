@@ -1,4 +1,4 @@
-﻿import { randomFrom, weightedPick } from "../core/utils.js";
+import { clamp, randomFrom, weightedPick } from "../core/utils.js";
 import { MATERIALS, materialName } from "../data/materials.js";
 import {
   FALLBACK_POOL,
@@ -65,11 +65,11 @@ export function craftFromLab(state) {
   const picked = weightedPick(pool);
   const species = getSpecies(picked.speciesId);
   const pet = createPetFromSpecies(species);
+  const existingSameSpecies = state.pets.find((item) => item.speciesId === pet.speciesId);
 
-  state.pets.unshift(pet);
-  state.activePetId = pet.id;
   state.craftCount += 1;
   state.craftStats[species.rarity] = (state.craftStats[species.rarity] ?? 0) + 1;
+  state.speciesCount[species.id] = (state.speciesCount[species.id] ?? 0) + 1;
 
   const isNew = !state.dex[species.id];
   if (isNew) {
@@ -81,26 +81,48 @@ export function craftFromLab(state) {
 
   state.labSlots = [null, null, null];
 
-  if (state.pets.length > MAX_PETS) {
-    const removed = state.pets.pop();
-    if (removed && removed.id === state.activePetId) {
-      state.activePetId = state.pets[0]?.id ?? null;
+  if (existingSameSpecies) {
+    infuseDuplicatePet(state, existingSameSpecies);
+    state.activePetId = existingSameSpecies.id;
+  } else {
+    state.pets.unshift(pet);
+    state.activePetId = pet.id;
+
+    if (state.pets.length > MAX_PETS) {
+      const removed = state.pets.pop();
+      if (removed && removed.id === state.activePetId) {
+        state.activePetId = state.pets[0]?.id ?? null;
+      }
     }
   }
 
   const recipeTitle = recipe ? `【${recipe.name}】` : "【未知配方】";
   const newTag = isNew ? " 新发现。" : "";
+  const duplicateTag = existingSameSpecies
+    ? ` 重复个体已转化为共鸣样本并强化「${existingSameSpecies.name}」。`
+    : "";
   appendLog(
     state,
-    `${recipeTitle} 创建出 ${species.name}（${rarityLabel(species.rarity)}），获得 ${reward} 研究点。${newTag}`,
+    `${recipeTitle} 创建出 ${species.name}（${rarityLabel(species.rarity)}），获得 ${reward} 研究点。${newTag}${duplicateTag}`,
   );
 
   return {
     ok: true,
     recipe,
-    pet,
+    pet: existingSameSpecies ?? pet,
     isNew,
+    duplicateInfused: Boolean(existingSameSpecies),
   };
+}
+
+function infuseDuplicatePet(state, target) {
+  state.duplicateAbsorbCount = (state.duplicateAbsorbCount ?? 0) + 1;
+  target.growth += 24;
+  target.stats.satiety = clamp((target.stats.satiety ?? 0) + 6, 0, 100);
+  target.stats.mood = clamp((target.stats.mood ?? 0) + 8, 0, 100);
+  target.stats.cleanliness = clamp((target.stats.cleanliness ?? 0) + 4, 0, 100);
+  target.stats.energy = clamp((target.stats.energy ?? 0) + 8, 0, 100);
+  state.points += 3;
 }
 
 export function claimSupplyPack(state) {

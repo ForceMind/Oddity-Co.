@@ -109,8 +109,9 @@ export function applyCareAction(state, petId, actionId) {
 
 export function applyTicks(state, ticks) {
   const appliedTicks = Math.max(0, Math.floor(ticks));
+  const summary = { stageUps: 0, newEffects: 0 };
   if (appliedTicks <= 0 || state.pets.length === 0) {
-    return;
+    return summary;
   }
 
   for (const pet of state.pets) {
@@ -124,7 +125,9 @@ export function applyTicks(state, ticks) {
         pet.stats[key] = clamp((pet.stats[key] ?? 50) - decay, 0, 100);
       }
 
-      triggerEffectIfNeeded(state, pet);
+      if (triggerEffectIfNeeded(state, pet)) {
+        summary.newEffects += 1;
+      }
 
       let effectGrowthMult = 1;
       for (const effect of pet.effects) {
@@ -192,9 +195,12 @@ export function applyTicks(state, ticks) {
 
       const reward = 6 + (RARITY_POINT_REWARD[pet.rarity] ?? 2);
       state.points += reward;
+      summary.stageUps += 1;
       appendLog(state, `${pet.name} 进化到「${getStage(pet.stage).name}」，获得 ${reward} 研究点。`);
     }
   }
+
+  return summary;
 }
 
 export function growthProgress(pet) {
@@ -271,7 +277,7 @@ function mitigateEffectsByAction(pet, actionId) {
 
 function triggerEffectIfNeeded(state, pet) {
   if (pet.effects.length >= MAX_EFFECTS) {
-    return;
+    return false;
   }
 
   for (const effectId of EFFECT_TRIGGER_ORDER) {
@@ -294,8 +300,9 @@ function triggerEffectIfNeeded(state, pet) {
 
     pet.effects.push({ id: effectId, remaining: def.duration });
     appendLog(state, `${pet.name} 出现状态「${def.name}」(${def.tag})。`);
-    return;
+    return true;
   }
+  return false;
 }
 
 function growthRequirement(stageLevel) {

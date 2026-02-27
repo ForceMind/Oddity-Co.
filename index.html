@@ -12,7 +12,10 @@
   <header class="app-header">
     <div>
       <h1>奇物公司</h1>
-      <p>创建奇怪生物，照料并培育到第 5 阶段。</p>
+      <p>做怪物，养怪物，养到第 5 阶段。</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" id="btnSound" class="subtle">音效：开</button>
     </div>
     <div class="header-stats">
       <div class="stat-pill">
@@ -35,10 +38,10 @@
   </header>
 
   <main class="app-grid">
-    <section class="panel">
+    <section id="paneLab" class="panel pane" data-pane="lab">
       <div class="panel-head">
         <h2>材料库与研发台</h2>
-        <p>点击材料可自动放入槽位，也支持拖拽。</p>
+        <p>点击材料自动放入槽位，也支持拖拽。</p>
       </div>
 
       <div class="material-head">
@@ -50,12 +53,11 @@
       </div>
 
       <div id="hintBoard" class="hint-board"></div>
-
       <div id="materials" class="materials"></div>
 
-      <div class="lab-head">
+      <div class="lab-head compact">
         <h3>研发槽位</h3>
-        <p>任意放入 2-3 个材料后创建奇物。</p>
+        <p>放入 2-3 个材料后创建奇物。</p>
       </div>
 
       <div class="slots" id="labSlots">
@@ -71,7 +73,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section id="panePet" class="panel pane" data-pane="pet">
       <div class="panel-head">
         <h2>当前培育体</h2>
         <p id="activeMeta">暂无奇物，先去研发台创建一个。</p>
@@ -118,11 +120,16 @@
       </div>
 
       <div id="effectList" class="effects"></div>
-
       <div id="careActions" class="care-actions"></div>
+
+      <div class="shop-head">
+        <h3>研究商店</h3>
+        <p>消耗研究点给当前奇物加成。</p>
+      </div>
+      <div id="shopActions" class="shop-actions"></div>
     </section>
 
-    <section class="panel panel-span">
+    <section id="paneCollection" class="panel pane panel-span" data-pane="collection">
       <div class="panel-head with-tabs">
         <h2>育成仓 / 图鉴</h2>
         <div class="tabs">
@@ -133,22 +140,27 @@
       <div id="collectionList" class="collection"></div>
     </section>
 
-    <section class="panel panel-span">
+    <section id="paneManage" class="panel pane panel-span" data-pane="manage">
       <div class="panel-head">
         <h2>公司订单</h2>
         <p>完成订单可获得研究点与材料奖励。</p>
       </div>
       <div id="orderBoard" class="orders"></div>
-    </section>
 
-    <section class="panel panel-span">
-      <div class="panel-head">
+      <div class="panel-head mt-12">
         <h2>事件日志</h2>
         <p>记录成长、照料和研发结果。</p>
       </div>
       <div id="eventLog" class="event-log"></div>
     </section>
   </main>
+
+  <nav id="mobileNav" class="mobile-nav" aria-label="移动端切换">
+    <button type="button" class="mobile-tab active" data-pane="lab">实验</button>
+    <button type="button" class="mobile-tab" data-pane="pet">培育</button>
+    <button type="button" class="mobile-tab" data-pane="collection">收集</button>
+    <button type="button" class="mobile-tab" data-pane="manage">管理</button>
+  </nav>
 
   <script type="module" src="./src/main.js"></script>
 </body>

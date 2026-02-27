@@ -1,7 +1,7 @@
 ﻿import { formatRelativeTicks, toPercent } from "../core/utils.js";
 import { MATERIALS, materialName } from "../data/materials.js";
-import { RECIPES, getSpecies, rarityLabel } from "../data/recipes.js";
-import { getStage } from "../data/stages.js";
+import { getSynthesisPaths, getSpecies, rarityLabel, RECIPES } from "../data/recipes.js";
+import { listShopItems } from "../game/economy.js";
 import { HINT_COST, supplyCooldownRemaining } from "../game/crafting.js";
 import {
   CARE_ACTIONS,
@@ -10,6 +10,7 @@ import {
   growthProgress,
   listPetEffects,
 } from "../game/simulation.js";
+import { getStage } from "../data/stages.js";
 
 export function initDom(handlers) {
   const refs = {
@@ -17,6 +18,7 @@ export function initDom(handlers) {
     statCrafts: byId("statCrafts"),
     statDex: byId("statDex"),
     statOrders: byId("statOrders"),
+    btnSound: byId("btnSound"),
     materials: byId("materials"),
     labSlots: Array.from(document.querySelectorAll(".slot")),
     btnCraft: byId("btnCraft"),
@@ -42,11 +44,19 @@ export function initDom(handlers) {
     valueEnergy: byId("valueEnergy"),
     effectList: byId("effectList"),
     careActions: byId("careActions"),
+    shopActions: byId("shopActions"),
     tabs: Array.from(document.querySelectorAll(".tab")),
     collectionList: byId("collectionList"),
     orderBoard: byId("orderBoard"),
     eventLog: byId("eventLog"),
     petCanvas: byId("petCanvas"),
+    mobileTabs: Array.from(document.querySelectorAll(".mobile-tab")),
+    panes: {
+      lab: byId("paneLab"),
+      pet: byId("panePet"),
+      collection: byId("paneCollection"),
+      manage: byId("paneManage"),
+    },
   };
 
   refs.btnCraft.addEventListener("click", handlers.onCraft);
@@ -54,6 +64,7 @@ export function initDom(handlers) {
   refs.btnReset.addEventListener("click", handlers.onReset);
   refs.btnSupply.addEventListener("click", handlers.onClaimSupply);
   refs.btnHint.addEventListener("click", handlers.onUnlockHint);
+  refs.btnSound.addEventListener("click", handlers.onToggleSound);
 
   refs.materials.addEventListener("click", (event) => {
     const target = event.target.closest("[data-material-id]");
@@ -73,8 +84,7 @@ export function initDom(handlers) {
 
   refs.labSlots.forEach((slotElement) => {
     slotElement.addEventListener("click", () => {
-      const slotIndex = Number(slotElement.dataset.slot);
-      handlers.onSlotClick(slotIndex);
+      handlers.onSlotClick(Number(slotElement.dataset.slot));
     });
 
     slotElement.addEventListener("dragover", (event) => {
@@ -89,17 +99,23 @@ export function initDom(handlers) {
     slotElement.addEventListener("drop", (event) => {
       event.preventDefault();
       slotElement.classList.remove("dragover");
-      const slotIndex = Number(slotElement.dataset.slot);
       const materialId = event.dataTransfer?.getData("text/plain");
-      if (materialId) {
-        handlers.onMaterialDrop(materialId, slotIndex);
+      if (!materialId) {
+        return;
       }
+      handlers.onMaterialDrop(materialId, Number(slotElement.dataset.slot));
     });
   });
 
   refs.tabs.forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       handlers.onTabChange(tabButton.dataset.tab);
+    });
+  });
+
+  refs.mobileTabs.forEach((tabButton) => {
+    tabButton.addEventListener("click", () => {
+      handlers.onMobilePaneChange(tabButton.dataset.pane);
     });
   });
 
@@ -119,12 +135,22 @@ export function initDom(handlers) {
     handlers.onCareAction(target.dataset.actionId);
   });
 
+  refs.shopActions.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-shop-id]");
+    if (!target) {
+      return;
+    }
+    handlers.onUseShopItem(target.dataset.shopId);
+  });
+
   renderCareActions(refs.careActions);
+  renderShopActions(refs.shopActions);
   return refs;
 }
 
 export function renderAll(state, refs) {
   renderStats(state, refs);
+  renderSoundState(state, refs);
   renderMaterials(state, refs);
   renderLabSlots(state, refs);
   renderActivePet(state, refs);
@@ -134,10 +160,24 @@ export function renderAll(state, refs) {
   renderLog(state, refs);
   renderSupply(state, refs);
   renderHints(state, refs);
+  renderMobilePane(state, refs);
 }
 
 export function renderPassive(state, refs) {
   renderSupply(state, refs);
+  renderMobilePane(state, refs);
+}
+
+export function flashPane(refs, paneKey) {
+  const pane = refs.panes?.[paneKey];
+  if (!pane) {
+    return;
+  }
+  pane.classList.remove("flash");
+  window.requestAnimationFrame(() => {
+    pane.classList.add("flash");
+    setTimeout(() => pane.classList.remove("flash"), 520);
+  });
 }
 
 function renderStats(state, refs) {
@@ -147,9 +187,12 @@ function renderStats(state, refs) {
   refs.statOrders.textContent = String(state.completedOrderCount ?? 0);
 }
 
+function renderSoundState(state, refs) {
+  refs.btnSound.textContent = `音效：${state.soundOn ? "开" : "关"}`;
+}
+
 function renderMaterials(state, refs) {
   refs.materials.innerHTML = "";
-
   for (const material of MATERIALS) {
     const count = state.mats[material.id] ?? 0;
     const button = document.createElement("button");
@@ -200,7 +243,8 @@ function renderActivePet(state, refs) {
     renderStatMeter(refs.meterCleanliness, refs.valueCleanliness, 0);
     renderStatMeter(refs.meterEnergy, refs.valueEnergy, 0);
     refs.effectList.innerHTML = "";
-    setCareButtonsDisabled(refs.careActions, true);
+    setButtonsDisabled(refs.careActions, true);
+    setButtonsDisabled(refs.shopActions, true);
     return;
   }
 
@@ -211,7 +255,6 @@ function renderActivePet(state, refs) {
 
   const stage = getStage(pet.stage);
   const growth = growthProgress(pet);
-
   refs.stageName.textContent = `阶段：${stage.name}`;
   refs.growthValue.textContent = growth.text;
   setMeter(refs.growthMeter, growth.percent);
@@ -222,7 +265,8 @@ function renderActivePet(state, refs) {
   renderStatMeter(refs.meterEnergy, refs.valueEnergy, pet.stats.energy ?? 0);
 
   renderEffectList(refs.effectList, pet);
-  setCareButtonsDisabled(refs.careActions, false);
+  setButtonsDisabled(refs.careActions, false);
+  setButtonsDisabled(refs.shopActions, false);
 }
 
 function renderEffectList(container, pet) {
@@ -251,6 +295,7 @@ function renderCollection(state, refs) {
     }
 
     for (const pet of state.pets) {
+      const sampleCount = state.speciesCount?.[pet.speciesId] ?? 1;
       const card = document.createElement("button");
       card.type = "button";
       card.className = "collection-item";
@@ -262,7 +307,7 @@ function renderCollection(state, refs) {
         <span class="name">${pet.name}</span>
         <span class="rarity ${pet.rarity}">${rarityLabel(pet.rarity)}</span>
         <span class="meta">阶段：${getStage(pet.stage).name} | 平均状态：${Math.round(averageCondition(pet))}</span>
-        <span class="meta">描述：${pet.desc}</span>
+        <span class="meta">样本数：${sampleCount} | 同种共鸣：${Math.max(0, sampleCount - 1)}</span>
       `;
       refs.collectionList.appendChild(card);
     }
@@ -277,12 +322,17 @@ function renderCollection(state, refs) {
 
   for (const [speciesId, firstSeenAt] of discovered) {
     const species = getSpecies(speciesId);
+    const paths = getSynthesisPaths(speciesId).map((item) => item.text).join(" / ") || "未知";
+    const discoveredCount = state.speciesCount?.[speciesId] ?? 1;
+
     const card = document.createElement("div");
     card.className = "collection-item";
     card.innerHTML = `
       <span class="name">${species.name}</span>
       <span class="rarity ${species.rarity}">${rarityLabel(species.rarity)}</span>
       <span class="meta">首次发现：${formatDate(firstSeenAt)}</span>
+      <span class="meta">发现次数：${discoveredCount}</span>
+      <span class="meta">合成路径：${paths}</span>
       <span class="meta">${species.desc}</span>
     `;
     refs.collectionList.appendChild(card);
@@ -291,8 +341,16 @@ function renderCollection(state, refs) {
 
 function renderOrders(state, refs) {
   refs.orderBoard.innerHTML = "";
+  const summary = document.createElement("div");
+  summary.className = "empty-note";
+  summary.textContent = `当前订单连击：${state.orderStreak ?? 0}`;
+  refs.orderBoard.appendChild(summary);
+
   if (!Array.isArray(state.orders) || state.orders.length === 0) {
-    refs.orderBoard.innerHTML = `<div class="empty-note">暂无订单，稍后会自动生成。</div>`;
+    const empty = document.createElement("div");
+    empty.className = "empty-note";
+    empty.textContent = "暂无订单，稍后会自动生成。";
+    refs.orderBoard.appendChild(empty);
     return;
   }
 
@@ -333,7 +391,7 @@ function renderLog(state, refs) {
     return;
   }
 
-  for (const line of state.logs.slice(0, 20)) {
+  for (const line of state.logs.slice(0, 24)) {
     const p = document.createElement("p");
     p.textContent = line;
     refs.eventLog.appendChild(p);
@@ -362,6 +420,26 @@ function renderHints(state, refs) {
   refs.hintBoard.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
 }
 
+function renderMobilePane(state, refs) {
+  const mobile = window.matchMedia("(max-width: 860px)").matches;
+  document.body.classList.toggle("mobile-mode", mobile);
+
+  if (!mobile) {
+    Object.values(refs.panes).forEach((pane) => pane.classList.remove("active"));
+    refs.mobileTabs.forEach((tab) => tab.classList.remove("active"));
+    return;
+  }
+
+  const pane = refs.panes[state.mobilePane] ? state.mobilePane : "lab";
+  Object.entries(refs.panes).forEach(([key, element]) => {
+    element.classList.toggle("active", key === pane);
+  });
+
+  refs.mobileTabs.forEach((tabButton) => {
+    tabButton.classList.toggle("active", tabButton.dataset.pane === pane);
+  });
+}
+
 function renderCareActions(container) {
   container.innerHTML = "";
   for (const action of CARE_ACTIONS) {
@@ -376,7 +454,21 @@ function renderCareActions(container) {
   }
 }
 
-function setCareButtonsDisabled(container, disabled) {
+function renderShopActions(container) {
+  container.innerHTML = "";
+  for (const item of listShopItems()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.shopId = item.id;
+    button.innerHTML = `
+      <span class="main">${item.name}</span>
+      <span class="sub">${item.desc} · ${item.cost} 点</span>
+    `;
+    container.appendChild(button);
+  }
+}
+
+function setButtonsDisabled(container, disabled) {
   container.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
