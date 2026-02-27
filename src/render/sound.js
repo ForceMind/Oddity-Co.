@@ -1,21 +1,59 @@
-﻿const FX_VOLUME = 0.06;
-const BGM_VOLUME = 0.025;
+﻿const FX_VOLUME = 0.055;
+const BGM_VOLUME = 0.026;
+const SCHEDULE_AHEAD = 0.35;
+const SCHEDULER_MS = 80;
 
-const BGM_PATTERNS = {
+const THEMES = {
   lab: {
-    bar: 1.6,
-    lead: [392, 440, 523, 587, 523, 440, 392, 349],
-    bass: [196, 196, 220, 220],
+    tempo: 100,
+    leadWave: "triangle",
+    bassWave: "sine",
+    lead: [
+      57, null, 60, null, 62, null, 64, null, 62, null, 60, null, 57, null, 55, null,
+      57, null, 60, null, 62, 64, 65, null, 62, null, 60, null, 57, null, 55, null,
+      55, null, 59, null, 60, null, 62, null, 60, null, 59, null, 55, null, 52, null,
+      57, null, 60, null, 62, null, 64, 65, 62, null, 60, null, 57, null, 55, null,
+    ],
+    bass: [
+      33, null, null, null, 33, null, null, null, 35, null, null, null, 35, null, null, null,
+      33, null, null, null, 33, null, null, null, 36, null, null, null, 36, null, null, null,
+      31, null, null, null, 31, null, null, null, 33, null, null, null, 33, null, null, null,
+      33, null, null, null, 33, null, null, null, 35, null, null, null, 35, null, null, null,
+    ],
   },
   pet: {
-    bar: 1.6,
-    lead: [330, 392, 440, 494, 440, 392, 370, 330],
-    bass: [165, 185, 196, 185],
+    tempo: 94,
+    leadWave: "sine",
+    bassWave: "triangle",
+    lead: [
+      52, null, 55, null, 57, null, 59, null, 57, null, 55, null, 52, null, 50, null,
+      52, null, 55, null, 57, null, 59, 60, 57, null, 55, null, 52, null, 50, null,
+      50, null, 53, null, 55, null, 57, null, 55, null, 53, null, 50, null, 48, null,
+      52, null, 55, null, 57, null, 59, 60, 57, null, 55, null, 52, null, 50, null,
+    ],
+    bass: [
+      28, null, null, null, 28, null, null, null, 31, null, null, null, 31, null, null, null,
+      28, null, null, null, 28, null, null, null, 33, null, null, null, 33, null, null, null,
+      26, null, null, null, 26, null, null, null, 28, null, null, null, 28, null, null, null,
+      28, null, null, null, 28, null, null, null, 31, null, null, null, 31, null, null, null,
+    ],
   },
   company: {
-    bar: 1.6,
-    lead: [440, 523, 587, 659, 587, 523, 494, 440],
-    bass: [220, 247, 262, 247],
+    tempo: 108,
+    leadWave: "square",
+    bassWave: "sine",
+    lead: [
+      60, null, 64, null, 67, null, 71, null, 67, null, 64, null, 60, null, 59, null,
+      60, null, 64, null, 67, null, 71, 72, 67, null, 64, null, 60, null, 59, null,
+      59, null, 62, null, 65, null, 69, null, 65, null, 62, null, 59, null, 57, null,
+      60, null, 64, null, 67, null, 71, 72, 67, null, 64, null, 60, null, 59, null,
+    ],
+    bass: [
+      36, null, null, null, 36, null, null, null, 38, null, null, null, 38, null, null, null,
+      36, null, null, null, 36, null, null, null, 40, null, null, null, 40, null, null, null,
+      35, null, null, null, 35, null, null, null, 36, null, null, null, 36, null, null, null,
+      36, null, null, null, 36, null, null, null, 38, null, null, null, 38, null, null, null,
+    ],
   },
 };
 
@@ -24,9 +62,11 @@ export class SoundEngine {
     this.effectsEnabled = effects;
     this.bgmEnabled = bgm;
     this.theme = "lab";
+
     this.ctx = null;
-    this.bgmTimer = null;
-    this.nextBarAt = 0;
+    this.schedulerId = null;
+    this.nextStepTime = 0;
+    this.stepIndex = 0;
   }
 
   setEffectsEnabled(enabled) {
@@ -34,24 +74,31 @@ export class SoundEngine {
   }
 
   setBgmEnabled(enabled) {
-    this.bgmEnabled = Boolean(enabled);
-    if (!this.bgmEnabled) {
+    const next = Boolean(enabled);
+    if (this.bgmEnabled === next) {
+      return;
+    }
+
+    this.bgmEnabled = next;
+    if (!next) {
       this.stopBgm();
       return;
     }
-    this.startBgm();
+    this.startBgm(true);
   }
 
   setTheme(theme) {
-    if (!BGM_PATTERNS[theme]) {
+    if (!THEMES[theme]) {
       return;
     }
     if (this.theme === theme) {
       return;
     }
+
     this.theme = theme;
-    if (this.bgmEnabled) {
-      this.startBgm(true);
+    if (this.bgmEnabled && this.ctx) {
+      this.stepIndex = 0;
+      this.nextStepTime = this.ctx.currentTime + 0.06;
     }
   }
 
@@ -60,12 +107,12 @@ export class SoundEngine {
       return;
     }
 
-    const ctx = this.ensureCtx();
+    const ctx = this.#ensureCtx();
     if (!ctx) {
       return;
     }
 
-    this.resumeIfNeeded();
+    this.#resumeIfNeeded();
     const now = ctx.currentTime;
 
     if (type === "craft") {
@@ -103,7 +150,6 @@ export class SoundEngine {
     if (type === "success") {
       tone(ctx, now, 620, 0.05, "triangle", FX_VOLUME * 0.7);
       tone(ctx, now + 0.06, 860, 0.07, "triangle", FX_VOLUME * 0.7);
-      return;
     }
   }
 
@@ -112,54 +158,72 @@ export class SoundEngine {
       return;
     }
 
-    const ctx = this.ensureCtx();
+    const ctx = this.#ensureCtx();
     if (!ctx) {
       return;
     }
 
-    this.resumeIfNeeded();
+    this.#resumeIfNeeded();
 
     if (forceRestart) {
       this.stopBgm();
     }
 
-    if (this.bgmTimer) {
+    if (this.schedulerId) {
       return;
     }
 
-    this.nextBarAt = ctx.currentTime + 0.08;
-    this.scheduleBar(this.nextBarAt);
-
-    this.bgmTimer = setInterval(() => {
-      if (!this.bgmEnabled || !this.ctx) {
-        this.stopBgm();
-        return;
-      }
-
-      const pattern = BGM_PATTERNS[this.theme] ?? BGM_PATTERNS.lab;
-      if (this.nextBarAt < this.ctx.currentTime + 0.12) {
-        this.nextBarAt = this.ctx.currentTime + 0.12;
-      }
-      this.scheduleBar(this.nextBarAt);
-      this.nextBarAt += pattern.bar;
-    }, 260);
+    this.stepIndex = 0;
+    this.nextStepTime = ctx.currentTime + 0.08;
+    this.schedulerId = setInterval(() => this.#scheduleSteps(), SCHEDULER_MS);
   }
 
   stopBgm() {
-    if (this.bgmTimer) {
-      clearInterval(this.bgmTimer);
-      this.bgmTimer = null;
+    if (!this.schedulerId) {
+      return;
     }
+    clearInterval(this.schedulerId);
+    this.schedulerId = null;
   }
 
   dispose() {
     this.stopBgm();
   }
 
-  ensureCtx() {
+  #scheduleSteps() {
+    if (!this.bgmEnabled || !this.ctx) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    const theme = THEMES[this.theme] ?? THEMES.lab;
+    const stepDuration = 60 / theme.tempo / 2;
+
+    while (this.nextStepTime < ctx.currentTime + SCHEDULE_AHEAD) {
+      this.#playThemeStep(theme, this.stepIndex, this.nextStepTime, stepDuration);
+      this.nextStepTime += stepDuration;
+      this.stepIndex = (this.stepIndex + 1) % theme.lead.length;
+    }
+  }
+
+  #playThemeStep(theme, stepIndex, when, stepDuration) {
+    const leadMidi = theme.lead[stepIndex];
+    const bassMidi = theme.bass[stepIndex];
+
+    if (Number.isFinite(leadMidi)) {
+      tone(this.ctx, when, midiToFreq(leadMidi), stepDuration * 0.9, theme.leadWave, BGM_VOLUME);
+    }
+
+    if (Number.isFinite(bassMidi)) {
+      tone(this.ctx, when, midiToFreq(bassMidi), stepDuration * 1.05, theme.bassWave, BGM_VOLUME * 0.8);
+    }
+  }
+
+  #ensureCtx() {
     if (typeof window === "undefined") {
       return null;
     }
+
     if (this.ctx) {
       return this.ctx;
     }
@@ -173,33 +237,16 @@ export class SoundEngine {
     return this.ctx;
   }
 
-  resumeIfNeeded() {
-    if (!this.ctx) {
+  #resumeIfNeeded() {
+    if (!this.ctx || this.ctx.state !== "suspended") {
       return;
     }
-    if (this.ctx.state === "suspended") {
-      this.ctx.resume().catch(() => undefined);
-    }
+    this.ctx.resume().catch(() => undefined);
   }
+}
 
-  scheduleBar(startAt) {
-    const ctx = this.ctx;
-    if (!ctx) {
-      return;
-    }
-
-    const pattern = BGM_PATTERNS[this.theme] ?? BGM_PATTERNS.lab;
-    const step = pattern.bar / pattern.lead.length;
-
-    for (let i = 0; i < pattern.lead.length; i += 1) {
-      tone(ctx, startAt + step * i, pattern.lead[i], step * 0.78, "triangle", BGM_VOLUME);
-    }
-
-    const bassStep = pattern.bar / pattern.bass.length;
-    for (let i = 0; i < pattern.bass.length; i += 1) {
-      tone(ctx, startAt + bassStep * i, pattern.bass[i], bassStep * 0.85, "sine", BGM_VOLUME * 0.8);
-    }
-  }
+function midiToFreq(midi) {
+  return 440 * 2 ** ((midi - 69) / 12);
 }
 
 function tone(ctx, start, freq, duration, wave, gainLevel) {
