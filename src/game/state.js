@@ -8,7 +8,7 @@ export const MAX_PETS = 24;
 
 export function createDefaultState() {
   return {
-    version: 4,
+    version: 5,
     createdAt: new Date().toISOString(),
     points: 0,
     craftCount: 0,
@@ -28,7 +28,9 @@ export function createDefaultState() {
     duplicateAbsorbCount: 0,
     tab: "nursery",
     mobilePane: "lab",
+    companySection: "collection",
     soundOn: true,
+    bgmOn: true,
     logs: ["[系统] 欢迎来到奇物公司。先拖材料进行研发。"],
     lastTickAt: Date.now(),
     lastSupplyAt: 0,
@@ -121,8 +123,18 @@ function migrateState(source) {
     : 0;
 
   state.tab = source.tab === "dex" ? "dex" : "nursery";
-  state.mobilePane = typeof source.mobilePane === "string" ? source.mobilePane : "lab";
+  if (typeof source.mobilePane === "string") {
+    if (source.mobilePane === "collection" || source.mobilePane === "manage") {
+      state.mobilePane = "company";
+    } else {
+      state.mobilePane = source.mobilePane;
+    }
+  } else {
+    state.mobilePane = "lab";
+  }
+  state.companySection = typeof source.companySection === "string" ? source.companySection : "collection";
   state.soundOn = typeof source.soundOn === "boolean" ? source.soundOn : true;
+  state.bgmOn = typeof source.bgmOn === "boolean" ? source.bgmOn : true;
 
   state.logs = Array.isArray(source.logs)
     ? source.logs.filter((entry) => typeof entry === "string").slice(0, 40)

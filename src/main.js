@@ -17,7 +17,7 @@ import { SoundEngine } from "./render/sound.js";
 let state = loadState();
 syncOrders(state);
 
-const sound = new SoundEngine(state.soundOn);
+const sound = new SoundEngine({ effects: state.soundOn, bgm: state.bgmOn });
 const refs = initDom({
   onMaterialSelect: handleMaterialSelect,
   onMaterialDrop: handleMaterialDrop,
@@ -28,11 +28,13 @@ const refs = initDom({
   onClaimSupply: handleClaimSupply,
   onUnlockHint: handleUnlockHint,
   onTabChange: handleTabChange,
+  onCompanySectionChange: handleCompanySectionChange,
   onSelectPet: handleSelectPet,
   onCareAction: handleCareAction,
   onUseShopItem: handleUseShopItem,
   onMobilePaneChange: handleMobilePaneChange,
   onToggleSound: handleToggleSound,
+  onToggleBgm: handleToggleBgm,
 });
 
 const painter = new PetPainter(refs.petCanvas);
@@ -51,6 +53,7 @@ setInterval(() => {
 
 window.addEventListener("beforeunload", () => {
   persistState(state);
+  sound.dispose();
 });
 
 requestAnimationFrame(function animate(timeMs) {
@@ -89,6 +92,8 @@ function handleCraft() {
     commit();
     return;
   }
+
+  state.mobilePane = "pet";
   commit({ sound: "craft", flash: "pet" });
 }
 
@@ -103,9 +108,10 @@ function handleReset() {
   if (!confirmed) {
     return;
   }
+
   state = resetState();
   syncOrders(state);
-  sound.setEnabled(state.soundOn);
+  syncSoundMode();
   appendLog(state, "存档已重置。奇物公司重新开业。");
   commit();
 }
@@ -138,18 +144,29 @@ function handleTabChange(tabName) {
   commit();
 }
 
+function handleCompanySectionChange(section) {
+  if (!["collection", "orders", "log"].includes(section)) {
+    return;
+  }
+  state.companySection = section;
+  state.mobilePane = "company";
+  commit();
+}
+
 function handleSelectPet(petId) {
   if (!state.pets.some((pet) => pet.id === petId)) {
     return;
   }
   state.activePetId = petId;
-  appendLog(state, "已切换当前培育体。");
-  commit();
+  state.mobilePane = "pet";
+  appendLog(state, "已切换当前培育体。")
+  commit({ flash: "pet" });
 }
 
 function handleCareAction(actionId) {
   if (!state.activePetId) {
-    appendLog(state, "没有可照料的奇物。先创建一个吧。");
+    appendLog(state, "没有可照料的奇物。先去实验室创建一个吧。");
+    state.mobilePane = "lab";
     commit();
     return;
   }
@@ -167,6 +184,8 @@ function handleCareAction(actionId) {
 function handleUseShopItem(itemId) {
   if (!state.activePetId) {
     appendLog(state, "没有可使用道具的奇物。先选择一个培育体。");
+    state.mobilePane = "company";
+    state.companySection = "collection";
     commit();
     return;
   }
@@ -182,7 +201,7 @@ function handleUseShopItem(itemId) {
 }
 
 function handleMobilePaneChange(pane) {
-  if (!["lab", "pet", "collection", "manage"].includes(pane)) {
+  if (!["lab", "pet", "company"].includes(pane)) {
     return;
   }
   state.mobilePane = pane;
@@ -191,11 +210,17 @@ function handleMobilePaneChange(pane) {
 
 function handleToggleSound() {
   state.soundOn = !state.soundOn;
-  sound.setEnabled(state.soundOn);
+  syncSoundMode();
   commit();
   if (state.soundOn) {
     sound.beep("success");
   }
+}
+
+function handleToggleBgm() {
+  state.bgmOn = !state.bgmOn;
+  syncSoundMode();
+  commit();
 }
 
 function stepByClock() {
@@ -226,6 +251,7 @@ function recoverOfflineProgress() {
 
 function commit(meta = {}) {
   const orderSummary = evaluateOrders(state);
+  syncSoundMode();
   persistState(state);
   renderAll(state, refs);
 
@@ -248,6 +274,25 @@ function commit(meta = {}) {
 
   if (orderSummary?.completed > 0) {
     sound.beep("order");
-    flashPane(refs, "manage");
+    flashPane(refs, "company");
   }
+}
+
+function syncSoundMode() {
+  sound.setEffectsEnabled(state.soundOn);
+  sound.setBgmEnabled(state.bgmOn);
+  sound.setTheme(mapPaneToTheme(state.mobilePane));
+  if (state.bgmOn) {
+    sound.startBgm();
+  }
+}
+
+function mapPaneToTheme(pane) {
+  if (pane === "pet") {
+    return "pet";
+  }
+  if (pane === "company") {
+    return "company";
+  }
+  return "lab";
 }

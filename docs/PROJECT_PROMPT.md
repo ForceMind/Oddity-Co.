@@ -12,8 +12,8 @@
 3. 图鉴收集 + 配方情报 + 公司订单 + 研究商店
 4. 重复怪物自动共鸣吸收（不无限堆叠）
 5. 存在突变/异常状态事件（影响成长）
-6. Canvas 绘制可视化宠物形态 + WebAudio 音效
-7. 移动端采用单屏面板切换，不用页面滚动
+6. Canvas 绘制可视化宠物形态 + WebAudio 音效 + 循环 BGM
+7. 移动端采用三段流程单屏切换（实验/培育/公司），不用页面滚动
 
 必须遵守：
 - 不要把逻辑重新塞回单个 HTML。
@@ -34,6 +34,7 @@
 - UI 渲染与移动端面板：`src/render/dom.js`
 - 动画绘制：`src/render/petPainter.js`
 - 音效：`src/render/sound.js`
+- BGM 主题切换：由 `state.mobilePane` 和 `src/main.js` 驱动 `src/render/sound.js`
 
 ## 提示词模板
 

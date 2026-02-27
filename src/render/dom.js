@@ -12,6 +12,8 @@ import {
 } from "../game/simulation.js";
 import { getStage } from "../data/stages.js";
 
+const COMPANY_SECTIONS = ["collection", "orders", "log"];
+
 export function initDom(handlers) {
   const refs = {
     statPoints: byId("statPoints"),
@@ -19,6 +21,7 @@ export function initDom(handlers) {
     statDex: byId("statDex"),
     statOrders: byId("statOrders"),
     btnSound: byId("btnSound"),
+    btnBgm: byId("btnBgm"),
     materials: byId("materials"),
     labSlots: Array.from(document.querySelectorAll(".slot")),
     btnCraft: byId("btnCraft"),
@@ -51,11 +54,16 @@ export function initDom(handlers) {
     eventLog: byId("eventLog"),
     petCanvas: byId("petCanvas"),
     mobileTabs: Array.from(document.querySelectorAll(".mobile-tab")),
+    companyTabs: Array.from(document.querySelectorAll(".company-tab")),
+    companySections: {
+      collection: byId("companyCollection"),
+      orders: byId("companyOrders"),
+      log: byId("companyLog"),
+    },
     panes: {
       lab: byId("paneLab"),
       pet: byId("panePet"),
-      collection: byId("paneCollection"),
-      manage: byId("paneManage"),
+      company: byId("paneCompany"),
     },
   };
 
@@ -65,6 +73,7 @@ export function initDom(handlers) {
   refs.btnSupply.addEventListener("click", handlers.onClaimSupply);
   refs.btnHint.addEventListener("click", handlers.onUnlockHint);
   refs.btnSound.addEventListener("click", handlers.onToggleSound);
+  refs.btnBgm.addEventListener("click", handlers.onToggleBgm);
 
   refs.materials.addEventListener("click", (event) => {
     const target = event.target.closest("[data-material-id]");
@@ -113,6 +122,12 @@ export function initDom(handlers) {
     });
   });
 
+  refs.companyTabs.forEach((tabButton) => {
+    tabButton.addEventListener("click", () => {
+      handlers.onCompanySectionChange(tabButton.dataset.company);
+    });
+  });
+
   refs.mobileTabs.forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       handlers.onMobilePaneChange(tabButton.dataset.pane);
@@ -156,8 +171,9 @@ export function renderAll(state, refs) {
   renderActivePet(state, refs);
   renderCollection(state, refs);
   renderOrders(state, refs);
-  renderTabs(state, refs);
   renderLog(state, refs);
+  renderTabs(state, refs);
+  renderCompanySections(state, refs);
   renderSupply(state, refs);
   renderHints(state, refs);
   renderMobilePane(state, refs);
@@ -189,6 +205,7 @@ function renderStats(state, refs) {
 
 function renderSoundState(state, refs) {
   refs.btnSound.textContent = `音效：${state.soundOn ? "开" : "关"}`;
+  refs.btnBgm.textContent = `BGM：${state.bgmOn ? "开" : "关"}`;
 }
 
 function renderMaterials(state, refs) {
@@ -231,7 +248,7 @@ function renderActivePet(state, refs) {
   const pet = getActivePet(state);
 
   if (!pet) {
-    refs.activeMeta.textContent = "暂无奇物，先去研发台创建一个。";
+    refs.activeMeta.textContent = "暂无奇物，先去实验室创建一个。";
     refs.activeName.textContent = "未选择";
     refs.activeRarity.textContent = "-";
     refs.activeRarity.className = "";
@@ -378,12 +395,6 @@ function renderOrders(state, refs) {
   }
 }
 
-function renderTabs(state, refs) {
-  refs.tabs.forEach((tabButton) => {
-    tabButton.classList.toggle("active", tabButton.dataset.tab === state.tab);
-  });
-}
-
 function renderLog(state, refs) {
   refs.eventLog.innerHTML = "";
   if (!state.logs.length) {
@@ -396,6 +407,24 @@ function renderLog(state, refs) {
     p.textContent = line;
     refs.eventLog.appendChild(p);
   }
+}
+
+function renderTabs(state, refs) {
+  refs.tabs.forEach((tabButton) => {
+    tabButton.classList.toggle("active", tabButton.dataset.tab === state.tab);
+  });
+}
+
+function renderCompanySections(state, refs) {
+  const active = COMPANY_SECTIONS.includes(state.companySection) ? state.companySection : "collection";
+
+  refs.companyTabs.forEach((tabButton) => {
+    tabButton.classList.toggle("active", tabButton.dataset.company === active);
+  });
+
+  Object.entries(refs.companySections).forEach(([key, section]) => {
+    section.classList.toggle("active", key === active);
+  });
 }
 
 function renderSupply(state, refs) {

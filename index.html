@@ -12,42 +12,31 @@
   <header class="app-header">
     <div>
       <h1>奇物公司</h1>
-      <p>做怪物，养怪物，养到第 5 阶段。</p>
+      <p>手机优先：实验 → 培育 → 公司</p>
     </div>
     <div class="header-actions">
       <button type="button" id="btnSound" class="subtle">音效：开</button>
+      <button type="button" id="btnBgm" class="subtle">BGM：开</button>
     </div>
     <div class="header-stats">
-      <div class="stat-pill">
-        <span class="dot good"></span>
-        研究点 <b id="statPoints">0</b>
-      </div>
-      <div class="stat-pill">
-        <span class="dot warn"></span>
-        研发次数 <b id="statCrafts">0</b>
-      </div>
-      <div class="stat-pill">
-        <span class="dot bad"></span>
-        图鉴收集 <b id="statDex">0</b>
-      </div>
-      <div class="stat-pill">
-        <span class="dot good"></span>
-        订单完成 <b id="statOrders">0</b>
-      </div>
+      <div class="stat-pill"><span class="dot good"></span>研究点 <b id="statPoints">0</b></div>
+      <div class="stat-pill"><span class="dot warn"></span>研发次数 <b id="statCrafts">0</b></div>
+      <div class="stat-pill"><span class="dot bad"></span>图鉴收集 <b id="statDex">0</b></div>
+      <div class="stat-pill"><span class="dot good"></span>订单完成 <b id="statOrders">0</b></div>
     </div>
   </header>
 
   <main class="app-grid">
     <section id="paneLab" class="panel pane" data-pane="lab">
       <div class="panel-head">
-        <h2>材料库与研发台</h2>
-        <p>点击材料自动放入槽位，也支持拖拽。</p>
+        <h2>实验室</h2>
+        <p>选材料，放槽位，创建奇物。</p>
       </div>
 
       <div class="material-head">
         <div class="material-actions">
           <button type="button" id="btnSupply" class="subtle">领取材料包</button>
-          <button type="button" id="btnHint" class="subtle">购买配方情报 (10)</button>
+          <button type="button" id="btnHint" class="subtle">买情报 (10)</button>
         </div>
         <span id="supplyHint">可领取</span>
       </div>
@@ -75,8 +64,8 @@
 
     <section id="panePet" class="panel pane" data-pane="pet">
       <div class="panel-head">
-        <h2>当前培育体</h2>
-        <p id="activeMeta">暂无奇物，先去研发台创建一个。</p>
+        <h2>培育室</h2>
+        <p id="activeMeta">暂无奇物，先去实验室创建一个。</p>
       </div>
 
       <div class="pet-stage-bar">
@@ -97,26 +86,10 @@
       </div>
 
       <div class="stats-block">
-        <div class="stat-row">
-          <span>饱腹</span>
-          <div class="meter"><i id="meterSatiety"></i></div>
-          <b id="valueSatiety">0</b>
-        </div>
-        <div class="stat-row">
-          <span>心情</span>
-          <div class="meter"><i id="meterMood"></i></div>
-          <b id="valueMood">0</b>
-        </div>
-        <div class="stat-row">
-          <span>清洁</span>
-          <div class="meter"><i id="meterCleanliness"></i></div>
-          <b id="valueCleanliness">0</b>
-        </div>
-        <div class="stat-row">
-          <span>体力</span>
-          <div class="meter"><i id="meterEnergy"></i></div>
-          <b id="valueEnergy">0</b>
-        </div>
+        <div class="stat-row"><span>饱腹</span><div class="meter"><i id="meterSatiety"></i></div><b id="valueSatiety">0</b></div>
+        <div class="stat-row"><span>心情</span><div class="meter"><i id="meterMood"></i></div><b id="valueMood">0</b></div>
+        <div class="stat-row"><span>清洁</span><div class="meter"><i id="meterCleanliness"></i></div><b id="valueCleanliness">0</b></div>
+        <div class="stat-row"><span>体力</span><div class="meter"><i id="meterEnergy"></i></div><b id="valueEnergy">0</b></div>
       </div>
 
       <div id="effectList" class="effects"></div>
@@ -129,37 +102,49 @@
       <div id="shopActions" class="shop-actions"></div>
     </section>
 
-    <section id="paneCollection" class="panel pane panel-span" data-pane="collection">
-      <div class="panel-head with-tabs">
-        <h2>育成仓 / 图鉴</h2>
-        <div class="tabs">
-          <button type="button" class="tab active" data-tab="nursery">育成仓</button>
-          <button type="button" class="tab" data-tab="dex">图鉴</button>
+    <section id="paneCompany" class="panel pane panel-span" data-pane="company">
+      <div class="panel-head with-company-tabs">
+        <h2>公司中心</h2>
+        <div class="company-tabs">
+          <button type="button" class="company-tab active" data-company="collection">收集</button>
+          <button type="button" class="company-tab" data-company="orders">订单</button>
+          <button type="button" class="company-tab" data-company="log">日志</button>
         </div>
       </div>
-      <div id="collectionList" class="collection"></div>
-    </section>
 
-    <section id="paneManage" class="panel pane panel-span" data-pane="manage">
-      <div class="panel-head">
-        <h2>公司订单</h2>
-        <p>完成订单可获得研究点与材料奖励。</p>
-      </div>
-      <div id="orderBoard" class="orders"></div>
+      <section id="companyCollection" class="company-section active">
+        <div class="panel-head with-tabs compact-head">
+          <h3>育成仓 / 图鉴</h3>
+          <div class="tabs">
+            <button type="button" class="tab active" data-tab="nursery">育成仓</button>
+            <button type="button" class="tab" data-tab="dex">图鉴</button>
+          </div>
+        </div>
+        <div id="collectionList" class="collection"></div>
+      </section>
 
-      <div class="panel-head mt-12">
-        <h2>事件日志</h2>
-        <p>记录成长、照料和研发结果。</p>
-      </div>
-      <div id="eventLog" class="event-log"></div>
+      <section id="companyOrders" class="company-section">
+        <div class="panel-head compact-head">
+          <h3>公司订单</h3>
+          <p>完成订单可获得研究点与材料奖励。</p>
+        </div>
+        <div id="orderBoard" class="orders"></div>
+      </section>
+
+      <section id="companyLog" class="company-section">
+        <div class="panel-head compact-head">
+          <h3>事件日志</h3>
+          <p>记录成长、照料和研发结果。</p>
+        </div>
+        <div id="eventLog" class="event-log"></div>
+      </section>
     </section>
   </main>
 
   <nav id="mobileNav" class="mobile-nav" aria-label="移动端切换">
     <button type="button" class="mobile-tab active" data-pane="lab">实验</button>
     <button type="button" class="mobile-tab" data-pane="pet">培育</button>
-    <button type="button" class="mobile-tab" data-pane="collection">收集</button>
-    <button type="button" class="mobile-tab" data-pane="manage">管理</button>
+    <button type="button" class="mobile-tab" data-pane="company">公司</button>
   </nav>
 
   <script type="module" src="./src/main.js"></script>
