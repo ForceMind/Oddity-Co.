@@ -617,9 +617,17 @@ canvas {
     overflow: hidden;
   }
 
+  .mobile-mode {
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
   .app-header,
-  .app-grid {
+  .app-grid,
+  .mobile-nav {
     width: calc(100% - 12px);
+    margin-inline: auto;
   }
 
   .app-header {
@@ -636,8 +644,8 @@ canvas {
   }
 
   .header-actions button {
-    padding: 5px 7px;
-    font-size: 0.6rem;
+    padding: 5px 8px;
+    font-size: 0.62rem;
   }
 
   .header-stats {
@@ -646,11 +654,13 @@ canvas {
 
   .stat-pill {
     padding: 4px 6px;
-    font-size: 0.6rem;
+    font-size: 0.61rem;
   }
 
   .mobile-mode .app-grid {
-    height: calc(100dvh - 112px);
+    height: 100%;
+    min-height: 0;
+    display: block;
     overflow: hidden;
     padding-bottom: 0;
   }
@@ -658,6 +668,7 @@ canvas {
   .mobile-mode .pane {
     display: none;
     height: 100%;
+    min-height: 0;
     overflow: hidden;
     padding: 8px;
   }
@@ -665,93 +676,169 @@ canvas {
   .mobile-mode .pane.active {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    gap: 7px;
+  }
+
+  .mobile-mode .panel-head,
+  .mobile-mode .material-head,
+  .mobile-mode .lab-head,
+  .mobile-mode .shop-head,
+  .mobile-mode .action-row,
+  .mobile-mode .growth-block,
+  .mobile-mode .stats-block,
+  .mobile-mode .effects,
+  .mobile-mode .care-actions,
+  .mobile-mode .shop-actions {
+    margin-top: 0;
+    margin-bottom: 0;
   }
 
   .mobile-mode .panel-head {
-    margin-bottom: 6px;
+    margin-bottom: 0;
   }
 
   .mobile-mode .panel-head h2,
   .mobile-mode .panel-head h3 {
-    font-size: 0.78rem;
+    font-size: 0.82rem;
   }
 
   .mobile-mode .panel-head p {
-    font-size: 0.58rem;
+    font-size: 0.61rem;
   }
 
   .mobile-mode #paneLab #materials {
-    flex: 1;
-    min-height: 0;
+    flex: 0 0 auto;
+    height: clamp(164px, 24dvh, 220px);
     overflow: auto;
+    padding-right: 2px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    align-content: start;
+    align-items: start;
+    grid-auto-rows: max-content;
   }
 
   .mobile-mode .material {
-    min-height: 54px;
+    min-height: 62px;
+    padding: 6px;
   }
 
   .mobile-mode .material .name {
-    font-size: 0.68rem;
+    font-size: 0.72rem;
   }
 
   .mobile-mode .material .tag,
   .mobile-mode .material .count {
-    font-size: 0.56rem;
+    font-size: 0.59rem;
   }
 
   .mobile-mode .slots {
-    margin-top: 2px;
+    margin-top: 0;
+    gap: 6px;
   }
 
   .mobile-mode .slot {
-    min-height: 48px;
-    font-size: 0.58rem;
+    min-height: 56px;
+    font-size: 0.62rem;
+    padding: 5px;
+  }
+
+  .mobile-mode #paneLab .lab-head.compact {
+    margin-top: 2px;
+  }
+
+  .mobile-mode #paneLab .action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mobile-mode #paneLab #btnCraft {
+    grid-column: 1 / -1;
   }
 
   .mobile-mode .action-row button {
-    padding: 5px 7px;
-    font-size: 0.6rem;
+    padding: 7px 7px;
+    font-size: 0.63rem;
   }
 
-  .mobile-mode .canvas-wrap {
-    aspect-ratio: 4 / 3;
+  .mobile-mode #panePet .canvas-wrap {
+    flex: 0 0 auto;
+    height: clamp(170px, 30dvh, 260px);
+    aspect-ratio: auto;
   }
 
   .mobile-mode .pet-stage-bar {
-    font-size: 0.64rem;
+    margin-bottom: 0;
+    font-size: 0.67rem;
   }
 
   .mobile-mode .growth-label-row,
   .mobile-mode .stat-row {
-    grid-template-columns: 44px 1fr 22px;
-    font-size: 0.6rem;
+    grid-template-columns: 46px 1fr 24px;
+    font-size: 0.63rem;
     gap: 4px;
+  }
+
+  .mobile-mode .effects {
+    gap: 3px;
+  }
+
+  .mobile-mode .effect-chip {
+    padding: 2px 7px;
+    font-size: 0.58rem;
   }
 
   .mobile-mode .care-actions,
   .mobile-mode .shop-actions {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(110px, 1fr);
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    overflow: visible;
+    white-space: normal;
+    gap: 6px;
+  }
+
+  .mobile-mode #panePet .shop-actions {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+    align-content: start;
+    grid-auto-rows: max-content;
   }
 
   .mobile-mode .care-actions button,
   .mobile-mode .shop-actions button {
-    min-width: 110px;
+    min-width: 0;
+    min-height: 52px;
+    padding: 7px;
   }
 
   .mobile-mode .care-actions .main,
   .mobile-mode .shop-actions .main {
-    font-size: 0.64rem;
+    font-size: 0.66rem;
+    line-height: 1.1;
   }
 
   .mobile-mode .care-actions .sub,
   .mobile-mode .shop-actions .sub {
-    font-size: 0.54rem;
+    font-size: 0.56rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-mode #paneCompany .with-company-tabs {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .mobile-mode #paneCompany .company-tabs {
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .mobile-mode #paneCompany .company-section.active {
@@ -768,14 +855,34 @@ canvas {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    padding-right: 2px;
+  }
+
+  .mobile-mode #collectionList,
+  .mobile-mode #orderBoard {
+    align-content: start;
+    align-items: start;
+    grid-auto-rows: max-content;
+    gap: 5px;
+  }
+
+  .mobile-mode #collectionList {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-mode .collection-item,
+  .mobile-mode .order-card {
+    height: auto;
+    min-height: 0;
+    align-self: start;
+    padding: 6px;
   }
 
   .mobile-nav {
     display: grid;
-    position: fixed;
-    left: 6px;
-    right: 6px;
-    bottom: max(6px, env(safe-area-inset-bottom));
+    position: static;
+    margin-top: 0;
+    margin-bottom: max(6px, env(safe-area-inset-bottom));
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     z-index: 30;
@@ -784,7 +891,7 @@ canvas {
   .mobile-tab {
     padding: 7px 6px;
     border-radius: 10px;
-    font-size: 0.64rem;
+    font-size: 0.67rem;
     background: linear-gradient(180deg, rgba(30, 61, 103, 0.95), rgba(16, 35, 62, 0.95));
   }
 
