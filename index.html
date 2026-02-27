@@ -1,0 +1,141 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>奇物公司 · Oddity Co</title>
+  <link rel="stylesheet" href="./src/styles/main.css" />
+</head>
+<body>
+  <div class="background-layer" aria-hidden="true"></div>
+
+  <header class="app-header">
+    <div>
+      <h1>奇物公司</h1>
+      <p>创建奇怪生物，照料并培育到第 5 阶段。</p>
+    </div>
+    <div class="header-stats">
+      <div class="stat-pill">
+        <span class="dot good"></span>
+        研究点 <b id="statPoints">0</b>
+      </div>
+      <div class="stat-pill">
+        <span class="dot warn"></span>
+        研发次数 <b id="statCrafts">0</b>
+      </div>
+      <div class="stat-pill">
+        <span class="dot bad"></span>
+        图鉴收集 <b id="statDex">0</b>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>材料库与研发台</h2>
+        <p>点击材料可自动放入槽位，也支持拖拽。</p>
+      </div>
+
+      <div class="material-head">
+        <div class="material-actions">
+          <button type="button" id="btnSupply" class="subtle">领取材料包</button>
+          <button type="button" id="btnHint" class="subtle">购买配方情报 (10)</button>
+        </div>
+        <span id="supplyHint">可领取</span>
+      </div>
+
+      <div id="hintBoard" class="hint-board"></div>
+
+      <div id="materials" class="materials"></div>
+
+      <div class="lab-head">
+        <h3>研发槽位</h3>
+        <p>任意放入 2-3 个材料后创建奇物。</p>
+      </div>
+
+      <div class="slots" id="labSlots">
+        <button type="button" class="slot" data-slot="0">放置材料 1</button>
+        <button type="button" class="slot" data-slot="1">放置材料 2</button>
+        <button type="button" class="slot" data-slot="2">放置材料 3（可选）</button>
+      </div>
+
+      <div class="action-row">
+        <button type="button" id="btnCraft" class="primary">创建奇物</button>
+        <button type="button" id="btnClear">清空槽位</button>
+        <button type="button" id="btnReset" class="danger">重置存档</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>当前培育体</h2>
+        <p id="activeMeta">暂无奇物，先去研发台创建一个。</p>
+      </div>
+
+      <div class="pet-stage-bar">
+        <span id="activeName">未选择</span>
+        <span id="activeRarity">-</span>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="petCanvas" width="640" height="380" aria-label="奇物可视化"></canvas>
+      </div>
+
+      <div class="growth-block">
+        <div class="growth-label-row">
+          <span id="stageName">阶段：-</span>
+          <span id="growthValue">0%</span>
+        </div>
+        <div class="meter"><i id="growthMeter"></i></div>
+      </div>
+
+      <div class="stats-block">
+        <div class="stat-row">
+          <span>饱腹</span>
+          <div class="meter"><i id="meterSatiety"></i></div>
+          <b id="valueSatiety">0</b>
+        </div>
+        <div class="stat-row">
+          <span>心情</span>
+          <div class="meter"><i id="meterMood"></i></div>
+          <b id="valueMood">0</b>
+        </div>
+        <div class="stat-row">
+          <span>清洁</span>
+          <div class="meter"><i id="meterCleanliness"></i></div>
+          <b id="valueCleanliness">0</b>
+        </div>
+        <div class="stat-row">
+          <span>体力</span>
+          <div class="meter"><i id="meterEnergy"></i></div>
+          <b id="valueEnergy">0</b>
+        </div>
+      </div>
+
+      <div id="careActions" class="care-actions"></div>
+    </section>
+
+    <section class="panel panel-span">
+      <div class="panel-head with-tabs">
+        <h2>育成仓 / 图鉴</h2>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="nursery">育成仓</button>
+          <button type="button" class="tab" data-tab="dex">图鉴</button>
+        </div>
+      </div>
+      <div id="collectionList" class="collection"></div>
+    </section>
+
+    <section class="panel panel-span">
+      <div class="panel-head">
+        <h2>事件日志</h2>
+        <p>记录成长、照料和研发结果。</p>
+      </div>
+      <div id="eventLog" class="event-log"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
