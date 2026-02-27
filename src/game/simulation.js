@@ -1,4 +1,5 @@
 ﻿import { average, clamp } from "../core/utils.js";
+import { EFFECT_TRIGGER_ORDER, getEffectDef } from "../data/effects.js";
 import { getStage, MAX_STAGE } from "../data/stages.js";
 import { RARITY_POINT_REWARD } from "../data/recipes.js";
 import { appendLog } from "./state.js";
@@ -11,6 +12,9 @@ const DECAY_PER_TICK = {
   cleanliness: 1.2,
   energy: 1.5,
 };
+
+const NEGATIVE_EFFECTS = new Set(["bloated", "grimy", "starving"]);
+const MAX_EFFECTS = 3;
 
 export const CARE_ACTIONS = [
   {
@@ -84,11 +88,20 @@ export function applyCareAction(state, petId, actionId) {
   }
 
   state.points -= action.cost;
+  state.careCount = (state.careCount ?? 0) + 1;
+
   for (const key of STAT_KEYS) {
     const current = pet.stats[key] ?? 50;
     pet.stats[key] = clamp(current + (action.effects[key] ?? 0), 0, 100);
   }
+
   pet.growth += action.growthBoost;
+
+  const cleared = mitigateEffectsByAction(pet, actionId);
+  if (cleared) {
+    appendLog(state, `${pet.name} 执行「${action.label}」，状态「${cleared.name}」被抑制。`);
+    return { ok: true, clearedEffect: cleared.id };
+  }
 
   appendLog(state, `${pet.name} 执行「${action.label}」。`);
   return { ok: true };
@@ -101,36 +114,75 @@ export function applyTicks(state, ticks) {
   }
 
   for (const pet of state.pets) {
-    const stageFactor = 1 + (pet.stage - 1) * 0.12;
-    for (const key of STAT_KEYS) {
-      const decay = DECAY_PER_TICK[key] * stageFactor * appliedTicks;
-      pet.stats[key] = clamp((pet.stats[key] ?? 50) - decay, 0, 100);
-    }
+    ensurePetEffects(pet);
 
-    pet.ageTicks += appliedTicks;
+    for (let tickIndex = 0; tickIndex < appliedTicks; tickIndex += 1) {
+      const stageFactor = 1 + (pet.stage - 1) * 0.12;
 
-    const values = STAT_KEYS.map((key) => pet.stats[key] ?? 0);
-    const avg = average(values);
-    const min = Math.min(...values);
+      for (const key of STAT_KEYS) {
+        const decay = DECAY_PER_TICK[key] * stageFactor;
+        pet.stats[key] = clamp((pet.stats[key] ?? 50) - decay, 0, 100);
+      }
 
-    let growthGain = appliedTicks * pet.potential * (0.45 + avg / 100);
-    if (min < 35) {
-      growthGain *= 0.6;
-    }
-    if (min < 20) {
-      growthGain *= 0.45;
-    }
-    if (min <= 5) {
-      growthGain *= 0.2;
-    }
+      triggerEffectIfNeeded(state, pet);
 
-    pet.growth += growthGain;
+      let effectGrowthMult = 1;
+      for (const effect of pet.effects) {
+        const def = getEffectDef(effect.id);
+        if (!def) {
+          continue;
+        }
+
+        for (const key of STAT_KEYS) {
+          if (!Number.isFinite(def.statDelta?.[key])) {
+            continue;
+          }
+          pet.stats[key] = clamp((pet.stats[key] ?? 50) + def.statDelta[key], 0, 100);
+        }
+
+        effectGrowthMult *= def.growthMult ?? 1;
+        effect.remaining -= 1;
+      }
+
+      const expired = pet.effects.filter((effect) => effect.remaining <= 0);
+      if (expired.length) {
+        pet.effects = pet.effects.filter((effect) => effect.remaining > 0);
+        for (const effect of expired) {
+          const def = getEffectDef(effect.id);
+          if (def) {
+            appendLog(state, `${pet.name} 的状态「${def.name}」结束。`);
+          }
+        }
+      }
+
+      const values = STAT_KEYS.map((key) => pet.stats[key] ?? 0);
+      const avg = average(values);
+      const min = Math.min(...values);
+
+      let growthGain = pet.potential * (0.45 + avg / 100) * effectGrowthMult;
+      if (avg > 85) {
+        growthGain += 0.4;
+      }
+      if (min < 35) {
+        growthGain *= 0.6;
+      }
+      if (min < 20) {
+        growthGain *= 0.45;
+      }
+      if (min <= 5) {
+        growthGain *= 0.2;
+      }
+
+      pet.growth += growthGain;
+      pet.ageTicks += 1;
+    }
 
     while (pet.stage < MAX_STAGE) {
       const requirement = growthRequirement(pet.stage);
       if (pet.growth < requirement) {
         break;
       }
+
       pet.growth -= requirement;
       pet.stage += 1;
 
@@ -162,6 +214,88 @@ export function averageCondition(pet) {
     return 0;
   }
   return average([pet.stats.satiety, pet.stats.mood, pet.stats.cleanliness, pet.stats.energy]);
+}
+
+export function listPetEffects(pet) {
+  ensurePetEffects(pet);
+  return pet.effects
+    .map((effect) => {
+      const def = getEffectDef(effect.id);
+      if (!def) {
+        return null;
+      }
+      return {
+        id: effect.id,
+        name: def.name,
+        tag: def.tag,
+        remaining: effect.remaining,
+      };
+    })
+    .filter(Boolean);
+}
+
+function ensurePetEffects(pet) {
+  if (!Array.isArray(pet.effects)) {
+    pet.effects = [];
+  }
+}
+
+function mitigateEffectsByAction(pet, actionId) {
+  ensurePetEffects(pet);
+
+  const canClear = (effectId) => {
+    if (actionId === "clean") {
+      return effectId === "grimy" || effectId === "bloated";
+    }
+    if (actionId === "feed") {
+      return effectId === "starving";
+    }
+    if (actionId === "rest") {
+      return effectId === "hyper";
+    }
+    if (actionId === "stabilize") {
+      return NEGATIVE_EFFECTS.has(effectId);
+    }
+    return false;
+  };
+
+  const idx = pet.effects.findIndex((effect) => canClear(effect.id));
+  if (idx < 0) {
+    return null;
+  }
+
+  const [removed] = pet.effects.splice(idx, 1);
+  const def = getEffectDef(removed.id);
+  return def ? { id: removed.id, name: def.name } : null;
+}
+
+function triggerEffectIfNeeded(state, pet) {
+  if (pet.effects.length >= MAX_EFFECTS) {
+    return;
+  }
+
+  for (const effectId of EFFECT_TRIGGER_ORDER) {
+    if (pet.effects.some((effect) => effect.id === effectId)) {
+      continue;
+    }
+
+    const def = getEffectDef(effectId);
+    if (!def) {
+      continue;
+    }
+
+    if (!def.condition(pet)) {
+      continue;
+    }
+
+    if (Math.random() > def.chance) {
+      continue;
+    }
+
+    pet.effects.push({ id: effectId, remaining: def.duration });
+    appendLog(state, `${pet.name} 出现状态「${def.name}」(${def.tag})。`);
+    return;
+  }
 }
 
 function growthRequirement(stageLevel) {

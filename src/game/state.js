@@ -8,10 +8,17 @@ export const MAX_PETS = 24;
 
 export function createDefaultState() {
   return {
-    version: 2,
+    version: 3,
     createdAt: new Date().toISOString(),
     points: 0,
     craftCount: 0,
+    craftStats: {
+      common: 0,
+      rare: 0,
+      weird: 0,
+      hidden: 0,
+    },
+    careCount: 0,
     mats: createInitialStock(),
     labSlots: [null, null, null],
     pets: [],
@@ -22,6 +29,8 @@ export function createDefaultState() {
     lastTickAt: Date.now(),
     lastSupplyAt: 0,
     unlockedHints: [],
+    orders: [],
+    completedOrderCount: 0,
   };
 }
 
@@ -65,6 +74,13 @@ function migrateState(source) {
     : Number.isFinite(source.tries)
       ? Math.max(0, Math.floor(source.tries))
       : 0;
+  state.craftStats = {
+    common: Number.isFinite(source?.craftStats?.common) ? Math.max(0, Math.floor(source.craftStats.common)) : 0,
+    rare: Number.isFinite(source?.craftStats?.rare) ? Math.max(0, Math.floor(source.craftStats.rare)) : 0,
+    weird: Number.isFinite(source?.craftStats?.weird) ? Math.max(0, Math.floor(source.craftStats.weird)) : 0,
+    hidden: Number.isFinite(source?.craftStats?.hidden) ? Math.max(0, Math.floor(source.craftStats.hidden)) : 0,
+  };
+  state.careCount = Number.isFinite(source.careCount) ? Math.max(0, Math.floor(source.careCount)) : 0;
 
   state.mats = {
     ...createInitialStock(),
@@ -76,7 +92,20 @@ function migrateState(source) {
     : [null, null, null];
 
   state.pets = Array.isArray(source.pets)
-    ? source.pets.filter((pet) => pet && typeof pet === "object")
+    ? source.pets
+        .filter((pet) => pet && typeof pet === "object")
+        .map((pet) => ({
+          ...pet,
+          effects: Array.isArray(pet.effects)
+            ? pet.effects.filter(
+                (effect) =>
+                  effect &&
+                  typeof effect === "object" &&
+                  typeof effect.id === "string" &&
+                  Number.isFinite(effect.remaining),
+              )
+            : [],
+        }))
     : [];
 
   state.dex = source.dex && typeof source.dex === "object" ? source.dex : {};
@@ -93,6 +122,10 @@ function migrateState(source) {
   state.unlockedHints = Array.isArray(source.unlockedHints)
     ? source.unlockedHints.filter((item) => typeof item === "string")
     : [];
+  state.orders = Array.isArray(source.orders) ? source.orders.filter((item) => item && typeof item === "object") : [];
+  state.completedOrderCount = Number.isFinite(source.completedOrderCount)
+    ? Math.max(0, Math.floor(source.completedOrderCount))
+    : 0;
 
   if (!state.activePetId && state.pets[0]) {
     state.activePetId = state.pets[0].id;

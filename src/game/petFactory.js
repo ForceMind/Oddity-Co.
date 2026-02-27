@@ -32,6 +32,7 @@ export function createPetFromSpecies(species) {
       cleanliness: jitter(BASE_STATS.cleanliness, 8),
       energy: jitter(BASE_STATS.energy, 8),
     },
+    effects: [],
     genes: {
       shape: species.shape,
       palette: species.palette,

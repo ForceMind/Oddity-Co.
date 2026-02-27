@@ -1,15 +1,22 @@
 ﻿import { formatRelativeTicks, toPercent } from "../core/utils.js";
 import { MATERIALS, materialName } from "../data/materials.js";
-import { getStage } from "../data/stages.js";
 import { RECIPES, getSpecies, rarityLabel } from "../data/recipes.js";
-import { CARE_ACTIONS, averageCondition, getActivePet, growthProgress } from "../game/simulation.js";
+import { getStage } from "../data/stages.js";
 import { HINT_COST, supplyCooldownRemaining } from "../game/crafting.js";
+import {
+  CARE_ACTIONS,
+  averageCondition,
+  getActivePet,
+  growthProgress,
+  listPetEffects,
+} from "../game/simulation.js";
 
 export function initDom(handlers) {
   const refs = {
     statPoints: byId("statPoints"),
     statCrafts: byId("statCrafts"),
     statDex: byId("statDex"),
+    statOrders: byId("statOrders"),
     materials: byId("materials"),
     labSlots: Array.from(document.querySelectorAll(".slot")),
     btnCraft: byId("btnCraft"),
@@ -33,9 +40,11 @@ export function initDom(handlers) {
     valueMood: byId("valueMood"),
     valueCleanliness: byId("valueCleanliness"),
     valueEnergy: byId("valueEnergy"),
+    effectList: byId("effectList"),
     careActions: byId("careActions"),
     tabs: Array.from(document.querySelectorAll(".tab")),
     collectionList: byId("collectionList"),
+    orderBoard: byId("orderBoard"),
     eventLog: byId("eventLog"),
     petCanvas: byId("petCanvas"),
   };
@@ -120,6 +129,7 @@ export function renderAll(state, refs) {
   renderLabSlots(state, refs);
   renderActivePet(state, refs);
   renderCollection(state, refs);
+  renderOrders(state, refs);
   renderTabs(state, refs);
   renderLog(state, refs);
   renderSupply(state, refs);
@@ -134,6 +144,7 @@ function renderStats(state, refs) {
   refs.statPoints.textContent = String(state.points);
   refs.statCrafts.textContent = String(state.craftCount);
   refs.statDex.textContent = String(Object.keys(state.dex).length);
+  refs.statOrders.textContent = String(state.completedOrderCount ?? 0);
 }
 
 function renderMaterials(state, refs) {
@@ -188,6 +199,7 @@ function renderActivePet(state, refs) {
     renderStatMeter(refs.meterMood, refs.valueMood, 0);
     renderStatMeter(refs.meterCleanliness, refs.valueCleanliness, 0);
     renderStatMeter(refs.meterEnergy, refs.valueEnergy, 0);
+    refs.effectList.innerHTML = "";
     setCareButtonsDisabled(refs.careActions, true);
     return;
   }
@@ -209,7 +221,24 @@ function renderActivePet(state, refs) {
   renderStatMeter(refs.meterCleanliness, refs.valueCleanliness, pet.stats.cleanliness ?? 0);
   renderStatMeter(refs.meterEnergy, refs.valueEnergy, pet.stats.energy ?? 0);
 
+  renderEffectList(refs.effectList, pet);
   setCareButtonsDisabled(refs.careActions, false);
+}
+
+function renderEffectList(container, pet) {
+  const effects = listPetEffects(pet);
+  if (!effects.length) {
+    container.innerHTML = `<span class="effect-chip">状态稳定</span>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  for (const effect of effects) {
+    const chip = document.createElement("span");
+    chip.className = `effect-chip ${effect.tag === "负向" ? "negative" : ""}`;
+    chip.textContent = `${effect.name} ${effect.remaining}刻`;
+    container.appendChild(chip);
+  }
 }
 
 function renderCollection(state, refs) {
@@ -257,6 +286,37 @@ function renderCollection(state, refs) {
       <span class="meta">${species.desc}</span>
     `;
     refs.collectionList.appendChild(card);
+  }
+}
+
+function renderOrders(state, refs) {
+  refs.orderBoard.innerHTML = "";
+  if (!Array.isArray(state.orders) || state.orders.length === 0) {
+    refs.orderBoard.innerHTML = `<div class="empty-note">暂无订单，稍后会自动生成。</div>`;
+    return;
+  }
+
+  for (const order of state.orders) {
+    const card = document.createElement("div");
+    card.className = "order-card";
+
+    const progress = Math.max(0, Math.floor(order.progress ?? 0));
+    const required = Math.max(1, Math.floor(order.required ?? 1));
+    const percent = Math.max(0, Math.min(100, (progress / required) * 100));
+    const matReward = Object.entries(order.reward?.mats ?? {})
+      .map(([materialId, amount]) => `${materialName(materialId)} +${amount}`)
+      .join("，");
+
+    card.innerHTML = `
+      <div class="title">${order.label}</div>
+      <div class="desc">${order.description}</div>
+      <div class="order-progress">
+        <div class="meter"><i style="width:${percent}%"></i></div>
+        <b>${Math.min(progress, required)} / ${required}</b>
+      </div>
+      <div class="reward">奖励：研究点 +${order.reward?.points ?? 0}${matReward ? `，${matReward}` : ""}</div>
+    `;
+    refs.orderBoard.appendChild(card);
   }
 }
 

@@ -1,10 +1,19 @@
-﻿import { craftFromLab, claimSupplyPack, clearLabSlots, placeMaterialInLab, removeMaterialFromLab, unlockRecipeHint } from "./game/crafting.js";
+﻿import {
+  craftFromLab,
+  claimSupplyPack,
+  clearLabSlots,
+  placeMaterialInLab,
+  removeMaterialFromLab,
+  unlockRecipeHint,
+} from "./game/crafting.js";
+import { evaluateOrders, syncOrders } from "./game/orders.js";
 import { applyCareAction, applyTicks, getActivePet } from "./game/simulation.js";
 import { TICK_MS, appendLog, loadState, persistState, resetState } from "./game/state.js";
 import { initDom, renderAll, renderPassive } from "./render/dom.js";
 import { PetPainter } from "./render/petPainter.js";
 
 let state = loadState();
+syncOrders(state);
 
 const refs = initDom({
   onMaterialSelect: handleMaterialSelect,
@@ -87,6 +96,7 @@ function handleReset() {
     return;
   }
   state = resetState();
+  syncOrders(state);
   appendLog(state, "存档已重置。奇物公司重新开业。");
   commit();
 }
@@ -165,6 +175,7 @@ function recoverOfflineProgress() {
 }
 
 function commit() {
+  evaluateOrders(state);
   persistState(state);
   renderAll(state, refs);
 }

@@ -69,6 +69,7 @@ export function craftFromLab(state) {
   state.pets.unshift(pet);
   state.activePetId = pet.id;
   state.craftCount += 1;
+  state.craftStats[species.rarity] = (state.craftStats[species.rarity] ?? 0) + 1;
 
   const isNew = !state.dex[species.id];
   if (isNew) {
